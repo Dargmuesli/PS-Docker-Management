@@ -160,9 +160,13 @@ Function Start-DockerRegistry {
     )
 
     While (-Not (Test-DockerRegistryIsRunning -Hostname $Hostname -Port $Port)) {
-        $DockerInspectConfigHostname = docker inspect -f "{{.Config.Hostname}}" $Name | Out-String
+        $DockerInspectConfigHostname = docker inspect -f "{{.Config.Hostname}}" $Name | Out-String | ForEach-Object {
+            If ($PSItem) {
+                Clear-Linebreaks -String $PSItem
+            }
+        }
 
-        If ($DockerInspectConfigHostname -And ($DockerInspectConfigHostname[0] -Match "^[a-z0-9]{12}$")) {
+        If ($DockerInspectConfigHostname -And ($DockerInspectConfigHostname -Match "^[a-z0-9]{12}$")) {
             docker start $DockerInspectConfigHostname
         } Else {
             If (Read-PromptYesNo -Message "Docker registry does not exist." -Question "Do you want to initialize it automatically?" -Default 0) {

@@ -110,7 +110,7 @@ If ($RegistryAddress) {
 
 ### Main tasks
 
-If ($StackGrep -And $StackGrep[0]) {
+If ($StackGrep) {
     Write-Output "Stopping stack `"${NameDns}`" ..."
     Stop-DockerStack -StackName $NameDns
 }
