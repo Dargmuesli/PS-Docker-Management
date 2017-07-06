@@ -1,5 +1,18 @@
 Set-StrictMode -Version Latest
 
+<#
+    .SYNOPSIS
+    Installs PS modules.
+
+    .DESCRIPTION
+    Checks if a module is installed and installs it if not.
+
+    .PARAMETER DependencyNames
+    A list of module names to install.
+
+    .EXAMPLE
+    Install-Dependencies -DependencyNames @("PSYaml")
+#>
 Function Install-Dependencies {
     Param (
         [Parameter(Mandatory = $True)] [String[]] $DependencyNames
@@ -12,6 +25,16 @@ Function Install-Dependencies {
     }
 }
 
+<#
+    .SYNOPSIS
+    Install the Docker module "PSYaml".
+
+    .DESCRIPTION
+    Downloads PSYaml-master from GitHub, extracts and removes the zip file.
+
+    .EXAMPLE
+    Invoke-Expression "Install-$DependencyName"
+#>
 Function Install-PSYaml {
     Add-Type -Assembly "System.IO.Compression.FileSystem"
 
@@ -35,6 +58,21 @@ Function Install-PSYaml {
     Remove-Item @("$YAMLDotNetLocation\PSYaml-master", "$YAMLDotNetLocation\PSYaml.zip") -Recurse -Force
 }
 
+<#
+    .SYNOPSIS
+    Check if a PS module is installed.
+
+    .DESCRIPTION
+    Tries to get the module and returns true on success.
+
+    .PARAMETER ModuleName
+    The name of the module to check.
+
+    .EXAMPLE
+    If (-Not (Test-ModuleInstalled -ModuleName $DependencyName)) {
+        Invoke-Expression "Install-$DependencyName"
+    }
+#>
 Function Test-ModuleInstalled {
     Param (
         [Parameter(Mandatory = $True)] [String] $ModuleName
