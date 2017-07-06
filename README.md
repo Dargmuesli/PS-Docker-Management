@@ -20,9 +20,7 @@ The script needs to be able to read certain values from configuration files.
 If they are not present in a `package.json` file they must be contained within the `docker-management.json` file.
 This includes:
 
-- **Name**
-
-    Required.
+- **Name** [required]
 
     The project's name.
 
@@ -35,9 +33,7 @@ This includes:
     "Name": "project"
     ```
 
-- **Owner**
-
-    Optional.
+- **Owner** [optional]
 
     The project's owner.
 
@@ -49,9 +45,7 @@ This includes:
     "Owner": "dargmuesli"
     ```
 
-- **RegistryAddress**
-
-    Optional.
+- **RegistryAddress** [optional]
 
     Information about the registry to be used.
     Contains:
@@ -69,9 +63,7 @@ This includes:
     }
     ```
 
-- **ComposeFile**
-
-    Required.
+- **ComposeFile** [required]
 
     Information about the Docker compose file that is created on execution.
     Contains:
