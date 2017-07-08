@@ -140,4 +140,5 @@ If (-Not (Test-DockerInSwarm)) {
 }
 
 Write-Output "Deploying `"${Package}`" with `"$ProjectPath\$($ComposeFile.Name)`" ..."
-env $(Get-Content "$ProjectPath\.env" | grep ^[A-Z] | xargs) docker stack deploy -c "$ProjectPath\$($ComposeFile.Name)" $NameDns
+Mount-EnvFile -EnvFilePath "$ProjectPath\.env"
+docker stack deploy -c "$ProjectPath\$($ComposeFile.Name)" $NameDns

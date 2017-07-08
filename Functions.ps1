@@ -136,6 +136,30 @@ Function Merge-Objects {
 
 <#
     .SYNOPSIS
+    Sets environment variable from an .env file.
+
+    .DESCRIPTION
+    Reads and parses each valid line from an .env file and sets the corresponding Windows environment variable.
+
+    .PARAMETER EnvFilePath
+    Path to the .env file that is to be mounted
+
+    .EXAMPLE
+    Mount-EnvFile -EnvFilePath "$ProjectPath\.env"
+#>
+Function Mount-EnvFile {
+    Param (
+        [Parameter(Mandatory = $True)] [String] $EnvFilePath
+    )
+
+    Get-Content $EnvFilePath | Select-String -Pattern "^[A-Z_]+=.+$" | ForEach-Object {
+        $PSItem = $PSItem -Split "="
+        Set-Item -Force -Path "env:$($PSItem[0])" -Value $PSItem[1]
+    }
+}
+
+<#
+    .SYNOPSIS
     Displays a yes/no prompt.
 
     .DESCRIPTION
