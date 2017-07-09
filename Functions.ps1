@@ -393,7 +393,7 @@ Function Start-Docker {
         If ($DockerPath -And (Read-PromptYesNo -Message "Docker is not running." -Question "Do you want to start it automatically?" -Default 0)) {
             & "$((Get-Item (Get-Command docker).Path).Directory.Parent.Parent.FullName)\Docker for Windows.exe"
 
-            Wait-Test -Test {-Not (Test-DockerIsRunning)} -$WithProgressbar -Activity "Waiting for Docker to initialize"
+            Wait-Test -Test {-Not (Test-DockerIsRunning)} -WithProgressbar -Activity "Waiting for Docker to initialize"
 
             Break
         } Else {
@@ -429,7 +429,7 @@ Function Start-DockerRegistry {
     )
 
     While (-Not (Test-DockerRegistryIsRunning -Hostname $Hostname -Port $Port)) {
-        $DockerInspectConfigHostname = docker inspect -f " {{.Config.Hostname}}" $Name | Out-String | ForEach-Object {
+        $DockerInspectConfigHostname = docker inspect -f "{{.Config.Hostname}}" $Name | Out-String | ForEach-Object {
             If ($PSItem) {
                 Clear-Linebreaks -String $PSItem
             }
@@ -440,6 +440,8 @@ Function Start-DockerRegistry {
         } Else {
             If (Read-PromptYesNo -Message "Docker registry does not exist." -Question "Do you want to initialize it automatically?" -Default 0) {
                 docker run -d -p "${Port}:5000" --name $Name "registry:2"
+
+                Wait-Test -Test {-Not (Test-DockerRegistryIsRunning  -Hostname $Hostname -Port $Port)} -WithProgressbar -Activity "Waiting for Docker registry to initialize"
             } Else {
                 Read-Host "Please initialize the Docker registry manually. Press enter to continue ..."
             }
@@ -652,5 +654,5 @@ Function Write-Progressbar {
         [Parameter(Mandatory = $False)] [String] $Activity = "Processing"
     )
 
-    Write-Progress -Activity "$Activity ..." -PercentComplete $PercentComplete
+    Write-Progress -Activity "$Activity" -PercentComplete $PercentComplete
 }
