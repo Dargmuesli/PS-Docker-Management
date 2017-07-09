@@ -1,6 +1,7 @@
 # Get the relation to the project this script is used on
 Param (
-    [Parameter(Mandatory = $True)] [String] $ProjectPath
+    [Parameter(Mandatory = $True)] [String] $ProjectPath,
+    [Parameter(Mandatory = $False)] [String] $DownloadMethod = "BITS"
 )
 
 # Enforce desired coding rules
@@ -57,7 +58,7 @@ Write-Output "Writing compose file ..."
 Write-DockerComposeFile -ComposeFile $ComposeFile -Path $ProjectPath
 
 # Ensure Docker is running
-Start-Docker
+Start-Docker -DownloadMethod $DownloadMethod
 
 # Assemble script variables and examine Docker's context
 $Package = ""

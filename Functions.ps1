@@ -379,10 +379,14 @@ Function Wait-Test {
     Start-Docker
 #>
 Function Start-Docker {
+    Param (
+        [Parameter(Mandatory = $False)] [String] $DownloadMethod = "BITS"
+    )
+
     While (-Not (Test-DockerIsRunning)) {
         While (-Not (Test-DockerIsInstalled)) {
             If (Read-PromptYesNo -Message "Docker is not installed." -Question "Do you want to install it automatically?" -Default 0) {
-                Install-Docker
+                Install-Docker -DownloadMethod $DownloadMethod
             } Else {
                 Read-Host "Please install Docker manually. Press enter to continue ..."
             }
