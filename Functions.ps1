@@ -1,7 +1,5 @@
 Set-StrictMode -Version Latest
 
-Import-Module BitsTransfer
-
 <#
     .SYNOPSIS
     Removes newlines from string.
@@ -34,14 +32,42 @@ Function Clear-Linebreaks {
     .DESCRIPTION
     Downloads and starts the docker installer.
 
+    .PARAMETER DownloadMethod
+    Indicates which type of download function is to be used.
+
     .EXAMPLE
     Install-Docker
+
+    .NOTES
+    Download method "WebRequest" can display its progress, but is very slow.
+    Download method "WebClient" cannot display its progress.
+    Download method "BITS" can display its progress, but can also be delayed by other downloads.
 #>
 Function Install-Docker {
+    Param (
+        [Parameter(Mandatory = $False)] [String] $DownloadMethod = "BITS"
+    )
+
+    $Url = "https://download.docker.com/win/stable/InstallDocker.msi"
     $Path = "$Env:Temp\InstallDocker.msi"
 
     If (-Not (Test-Path $Path)) {
-        Start-BitsTransfer -Source "https://download.docker.com/win/stable/InstallDocker.msi" -Destination $Path
+        Switch ($DownloadMethod) {
+            "WebRequest" {
+                Invoke-WebRequestWithProgress -Uri $Url -OutFile $Path -Overwrite
+                break;
+            }
+            "WebClient" {
+                $WebClient = New-Object Net.WebClient
+                $WebClient.DownloadFile($Url, $Path)
+                break;
+            }
+            "BITS" {
+                Import-Module BitsTransfer
+                Start-BitsTransfer -Source $Url -Destination $Path
+                break;
+            }
+        }
     }
 
     Start-Process msiexec.exe -Wait -ArgumentList "/I $Path"
@@ -98,6 +124,67 @@ Function Invoke-ExpressionSave {
         Throw $Stderr
     }
 }
+
+<#
+    .SYNOPSIS
+    Download a file and displays a progressbar.
+
+    .DESCRIPTION
+    Verifies that an existing file is managed as requested.
+    Then creates a HttpWebRequest whose response stream is directed to a file.
+    Every 10KB a progressbar showing the current download progress is displayed/updated.
+
+    .PARAMETER Uri
+    The Uri of the file that is to be downloaded
+
+    .PARAMETER Outfile
+    The path to where the file is to be saved.
+
+    .EXAMPLE
+    Invoke-WebRequestWithProgress -Uri "https://download.docker.com/win/stable/InstallDocker.msi" -OutFile $Path -Overwrite
+#>
+Function Invoke-WebRequestWithProgress {
+    Param (
+        [Parameter(Mandatory = $True)] [Uri] $Uri,
+        [Parameter(Mandatory = $True)] [String] $OutFile,
+        [Parameter(Mandatory = $False)] [Switch] $Overwrite,
+        [Parameter(Mandatory = $False)] [Int] $Timeout = 15000
+    )
+
+    If (Test-Path $OutFile) {
+        If ($Overwrite) {
+            Remove-Item -Path $OutFile
+        } Else {
+            Throw "The file that is to be downloaded already exists at the indicated location and the parameter `"Overwrite`" is not passed."
+        }
+    }
+
+    $Request = [Net.HttpWebRequest]::Create($Uri)
+    $Request.Set_Timeout($Timeout)
+    $Response = $Request.GetResponse()
+    $TotalLength = [Math]::Floor($Response.Get_ContentLength() / 1024)
+    $ResponseStream = $Response.GetResponseStream()
+    $TargetStream = New-Object -TypeName IO.FileStream -ArgumentList $OutFile, Create
+    $Buffer = New-Object Byte[] 10KB
+    $Count = $ResponseStream.Read($Buffer, 0, $Buffer.Length)
+    $DownloadedBytes = $Count
+
+    While ($Count -Gt 0) {
+        $test = [Convert]::ToInt32([Math]::Floor((($DownloadedBytes / 1024) / $TotalLength) * 100))
+        Write-Progressbar -PercentComplete $test `
+            -Activity "Downloading $([Math]::Floor($DownloadedBytes / 1024))K of ${TotalLength}K"
+        $TargetStream.Write($Buffer, 0, $Count)
+        $Count = $ResponseStream.Read($Buffer, 0, $Buffer.Length)
+        $DownloadedBytes = $DownloadedBytes + $Count
+    }
+
+    Write-Progress -Completed $True
+
+    $TargetStream.Flush()
+    $TargetStream.Close()
+    $TargetStream.Dispose()
+    $ResponseStream.Dispose()
+} 
 
 <#
     .SYNOPSIS
@@ -188,7 +275,7 @@ Function Read-PromptYesNo {
         [Parameter(Mandatory = $False)] [String] $Default = 1
     )
 
-    $Choices = [System.Management.Automation.Host.ChoiceDescription[]] (
+    $Choices = [Management.Automation.Host.ChoiceDescription[]] (
         (New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'),
         (New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No')
     )
@@ -232,40 +319,53 @@ Function Read-Settings {
 
 <#
     .SYNOPSIS
-    Displays a progressbar.
+    Displays an indeterminate progressbar while a test is successful.
 
     .DESCRIPTION
-    Increases the progressbar's value in steps from 0 to 100 infinitly.
+    Increases the progressbar's value in steps from 0 to 100 infinitly to provide visual feedback about a running task to the user.
 
     .PARAMETER Test
     The task check which needs to pass.
+
+    .PARAMETER Milliseconds
+    The time to wait between test checks.
+
+    .PARAMETER WithProgressbar
+    Wether to display a progressbar.
 
     .PARAMETER Activity
     A description of the running task.
 
     .EXAMPLE
-    Show-ProgressIndeterminate -Test {-Not (Test-DockerIsRunning)} -Activity "Waiting for Docker to initialize"
+    Wait-Test -Test {-Not (Test-DockerIsRunning)} -$WithProgressbar -Activity "Waiting for Docker to initialize"
 #>
-Function Show-ProgressIndeterminate {
+Function Wait-Test {
     Param (
         [Parameter(Mandatory = $True)] [String] $Test,
-        [Parameter(Mandatory = $True)] [String] $Activity
+        [Parameter(Mandatory = $False)] [Int] $Milliseconds = 1000,
+        [Parameter(Mandatory = $False)] [Switch] $WithProgressbar,
+        [Parameter(Mandatory = $False)] [String] $Activity = "Processing"
     )
 
-    $i = 0
+    $I = 0
 
     While (Invoke-Expression -Command $Test) {
-        $i++
+        $I++
 
-        If ($i -Eq 100) {
-            $i = 0
+        If ($I -Eq 100) {
+            $I = 0
         }
 
-        Write-Progress -Activity "$Activity ..." -PercentComplete $i
-        Start-Sleep -Seconds 1
+        If ($WithProgressbar) {
+            Write-Progressbar -Activity "$Activity ..." -PercentComplete $I
+        }
+
+        Start-Sleep -Milliseconds $Milliseconds
     }
 
-    Write-Progress -Completed $True
+    If ($WithProgressbar) {
+        Write-Progress -Completed $True
+    }
 }
 
 <#
@@ -293,7 +393,7 @@ Function Start-Docker {
         If ($DockerPath -And (Read-PromptYesNo -Message "Docker is not running." -Question "Do you want to start it automatically?" -Default 0)) {
             & "$((Get-Item (Get-Command docker).Path).Directory.Parent.Parent.FullName)\Docker for Windows.exe"
 
-            Show-ProgressIndeterminate -Test {-Not (Test-DockerIsRunning)} -Activity "Waiting for Docker to initialize"
+            Wait-Test -Test {-Not (Test-DockerIsRunning)} -$WithProgressbar -Activity "Waiting for Docker to initialize"
 
             Break
         } Else {
@@ -329,13 +429,13 @@ Function Start-DockerRegistry {
     )
 
     While (-Not (Test-DockerRegistryIsRunning -Hostname $Hostname -Port $Port)) {
-        $DockerInspectConfigHostname = docker inspect -f "{{.Config.Hostname}}" $Name | Out-String | ForEach-Object {
+        $DockerInspectConfigHostname = docker inspect -f " {{.Config.Hostname}}" $Name | Out-String | ForEach-Object {
             If ($PSItem) {
                 Clear-Linebreaks -String $PSItem
             }
         }
 
-        If ($DockerInspectConfigHostname -And ($DockerInspectConfigHostname -Match "^[a-z0-9]{12}$")) {
+        If ($DockerInspectConfigHostname -And ($DockerInspectConfigHostname -Match "^[a-z0-9] {12}$")) {
             docker start $DockerInspectConfigHostname
         } Else {
             If (Read-PromptYesNo -Message "Docker registry does not exist." -Question "Do you want to initialize it automatically?" -Default 0) {
@@ -366,7 +466,7 @@ Function Stop-DockerStack {
     )
 
     docker stack rm ${StackName}
-    Show-ProgressIndeterminate -Test {Test-DockerStackIsRunning -StackNamespace $StackName} -Activity "Waiting for Docker stack to quit"
+    Wait-Test -Test {Test-DockerStackIsRunning -StackNamespace $StackName} -WithProgressbar -Activity "Waiting for Docker stack to quit"
 }
 
 <#
@@ -426,12 +526,12 @@ Function Test-DockerIsInstalled {
     Tries to find the Docker process and verifies the availability of the "docker ps" command.
 
     .EXAMPLE
-    Show-ProgressIndeterminate -Test {-Not (Test-DockerIsRunning)} -Activity "Waiting for Docker to initialize"
+    Wait-Test -Test {-Not (Test-DockerIsRunning)} -$WithProgressbar -Activity "Waiting for Docker to initialize"
 #>
 Function Test-DockerIsRunning {
     $DockerActive = Get-Process "Docker for Windows" -ErrorAction SilentlyContinue | Out-String
 
-    If ($DockerActive -Eq $Null) {
+    If (-Not $DockerActive) {
         Return $false
     } Else {
         $DockerProcessesAll = Invoke-ExpressionSave "docker ps -a" -Graceful -WithError
@@ -488,7 +588,7 @@ Function Test-DockerRegistryIsRunning {
     The stack's name that is checked.
 
     .EXAMPLE
-    Show-ProgressIndeterminate -Test {Test-DockerStackIsRunning -StackNamespace $StackName} -Activity "Waiting for Docker stack to quit"
+    Wait-Test -Test {Test-DockerStackIsRunning -StackNamespace $StackName} -WithProgressbar -Activity "Waiting for Docker stack to quit"
 #>
 Function Test-DockerStackIsRunning {
     Param (
@@ -544,4 +644,13 @@ Function Write-DockerComposeFile {
     }
 
     "$ComposeFileContent`r`n---" > "$Path\$($ComposeFile.Name)"
+}
+
+Function Write-Progressbar {
+    Param (
+        [Parameter(Mandatory = $True)] [Int] $PercentComplete,
+        [Parameter(Mandatory = $False)] [String] $Activity = "Processing"
+    )
+
+    Write-Progress -Activity "$Activity ..." -PercentComplete $PercentComplete
 }
