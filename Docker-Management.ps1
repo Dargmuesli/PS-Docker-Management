@@ -1,7 +1,18 @@
-# Get the relation to the project this script is used on
+#Requires -Version 5
+
+# Get the path to the project this script is used on
 Param (
-    [Parameter(Mandatory = $True)] [String] $ProjectPath,
-    [Parameter(Mandatory = $False)] [String] $DownloadMethod = "BITS"
+    [Parameter(Mandatory = $True, Position = 0)]
+    [ValidateScript({Test-Path -Path $PSItem})]
+    [String] $ProjectPath,
+
+    [Parameter(Mandatory = $False)]
+    [ValidateNotNullOrEmpty()]
+    [String] $MachineName = "Docker",
+
+    [Parameter(Mandatory = $False)]
+    [ValidateSet('BITS', 'WebClient', 'WebRequest')]
+    [String] $DownloadMethod = "BITS"
 )
 
 # Enforce desired coding rules
@@ -10,28 +21,27 @@ Set-StrictMode -Version Latest
 # Stop on errors
 $ErrorActionPreference = "Stop"
 
-# Validate parameters
-If (-Not (Test-Path $ProjectPath)) {
-    Throw "ProjectPath invalid."
-}
-
 # Unify path parameter
-$ProjectPath = Convert-Path -Path $ProjectPath
-
-If ($ProjectPath.Substring($ProjectPath.Length - 1) -Eq "\") {
-    $ProjectPath = $ProjectPath.Substring(0, $ProjectPath.Length - 1)
-}
+$ProjectPath = (Convert-Path -Path $ProjectPath).TrimEnd("\")
 
 # Install dependencies
-. ".\PowerShell-Setup.ps1"
+While (-Not (Get-Module -ListAvailable -Name "PSDepend")) {
+    If ($PSVersionTable.PSVersion.Major -Ge 5) {
+        Install-Module -Name "PSDepend" -Scope CurrentUser
+    } ElseIf (($PSVersionTable.PSVersion.Major -Eq 3) -Or ($PSVersionTable.PSVersion.Major -Eq 4)) {
+        Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://raw.github.com/ramblingcookiemonster/PSDepend/Examples/Install-PSDepend.ps1')
+    }
+}
 
-Install-Dependencies -DependencyNames @("PSYaml")
+Write-Output "Checking dependencies..."
 
-# Include general functions
-. ".\Functions.ps1"
+If (-Not (Invoke-PSDepend .\ -Test -Quiet)) {
+    Write-Output "Installing dependencies..."
+    Invoke-PSDepend -Force
+}
 
 # Load project settings
-$Settings = Read-Settings -SourcesPaths @("${ProjectPath}\package.json", "${ProjectPath}\docker-management.json")
+$Settings = Read-Settings -SourcePath @("${ProjectPath}\package.json", "${ProjectPath}\docker-management.json")
 
 # Ensure required project variables are set
 If (-Not (Get-Member -InputObject $Settings -Name "Name" -Membertype Properties)) {
@@ -54,14 +64,14 @@ If (-Not $ComposeFile.Name) {
     Throw "Compose file name not specified."
 }
 
-Write-Output "Writing compose file ..."
-Write-DockerComposeFile -ComposeFile $ComposeFile -Path $ProjectPath
+Write-Output "Writing compose file..."
+Write-DockerComposeFile -ComposeFile $ComposeFile -Path $ProjectPath -Force
 
 # Ensure Docker is running
-Start-Docker -DownloadMethod $DownloadMethod
+Start-Docker -MachineName $MachineName -DownloadMethod $DownloadMethod
 
 # Assemble script variables and examine Docker's context
-$Package = ""
+$Package = $Null
 
 If ($Owner -And $Name) {
     $Package = "${Owner}/${Name}"
@@ -69,11 +79,12 @@ If ($Owner -And $Name) {
     $Package = $Name
 }
 
-$StackGrep = ""
+$StackGrep = $Null
 $NameDns = $Name.replace(".", "-")
 
 If (Test-DockerInSwarm) {
-    $StackGrep = docker stack ls | Select-String $NameDns
+    $StackGrep = docker stack ls |
+        Select-String $NameDns
     
     If (-Not $StackGrep) {
         Write-Output "Stack not found."
@@ -82,7 +93,9 @@ If (Test-DockerInSwarm) {
     Write-Output "Docker not in swarm."
 }
 
-$IdImgLocal = docker images -q $Package | Out-String | ForEach-Object {
+$IdImgLocal = docker images -q $Package |
+    Out-String |
+    ForEach-Object {
     If ($PSItem) {
         Clear-Linebreaks -String $PSItem
     }
@@ -93,12 +106,14 @@ If (-Not $IdImgLocal) {
 }
 
 $RegistryAddress = "${RegistryAddressHostname}:${RegistryAddressPort}"
-$IdImgRegistry = ""
+$IdImgRegistry = $Null
 
 If ($RegistryAddress) {
-    Start-DockerRegistry -Name $RegistryAddressName -Host $RegistryAddressHostname -Port $RegistryAddressPort
+    Start-DockerRegistry -RegistryName $RegistryAddressName -Hostname $RegistryAddressHostname -Port $RegistryAddressPort
 
-    $IdImgRegistry = docker images -q "${RegistryAddress}/${Package}" | Out-String | ForEach-Object {
+    $IdImgRegistry = docker images -q "${RegistryAddress}/${Package}" |
+        Out-String |
+        ForEach-Object {
         If ($PSItem) {
             Clear-Linebreaks -String $PSItem
         }
@@ -112,34 +127,34 @@ If ($RegistryAddress) {
 ### Main tasks
 
 If ($StackGrep) {
-    Write-Output "Stopping stack `"${NameDns}`" ..."
+    Write-Output "Stopping stack `"${NameDns}`"..."
     Stop-DockerStack -StackName $NameDns
 }
 
 If ($IdImgLocal) {
-    Write-Output "Removing image `"${IdImgLocal}`" as local image ..."
+    Write-Output "Removing image `"${IdImgLocal}`" as local image..."
     docker rmi ${IdImgLocal} -f
 }
 
 If ($IdImgRegistry -And ($IdImgRegistry -Ne $IdImgLocal)) {
-    Write-Output "Removing image `"${IdImgRegistry}`" as registry image ..."
+    Write-Output "Removing image `"${IdImgRegistry}`" as registry image..."
     docker rmi ${IdImgRegistry} -f
 }
 
-Write-Output "Building `"${Package}`" ..."
+Write-Output "Building `"${Package}`"..."
 docker build -t ${Package} $ProjectPath
 
 If ($RegistryAddress) {
-    Write-Output "Publishing `"${Package}`" on `"${RegistryAddress}`" ..."
+    Write-Output "Publishing `"${Package}`" on `"${RegistryAddress}`"..."
     docker tag ${Package} "${RegistryAddress}/${Package}"
     docker push "${RegistryAddress}/${Package}"
 }
 
 If (-Not (Test-DockerInSwarm)) {
-    Write-Output "Initializing swarm ..."
-    docker swarm init
+    Write-Output "Initializing swarm..."
+    docker swarm init --advertise-addr "eth0:2377"
 }
 
-Write-Output "Deploying `"${Package}`" with `"$ProjectPath\$($ComposeFile.Name)`" ..."
+Write-Output "Deploying `"${Package}`" with `"$ProjectPath\$($ComposeFile.Name)`"..."
 Mount-EnvFile -EnvFilePath "$ProjectPath\.env"
 docker stack deploy -c "$ProjectPath\$($ComposeFile.Name)" $NameDns
