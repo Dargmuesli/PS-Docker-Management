@@ -24,20 +24,22 @@ $ErrorActionPreference = "Stop"
 # Unify path parameter
 $ProjectPath = (Convert-Path -Path $ProjectPath).TrimEnd("\")
 
-# Install dependencies
-While (-Not (Get-Module -ListAvailable -Name "PSDepend")) {
-    If ($PSVersionTable.PSVersion.Major -Ge 5) {
-        Install-Module -Name "PSDepend" -Scope CurrentUser
-    } ElseIf (($PSVersionTable.PSVersion.Major -Eq 3) -Or ($PSVersionTable.PSVersion.Major -Eq 4)) {
-        Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://raw.github.com/ramblingcookiemonster/PSDepend/Examples/Install-PSDepend.ps1')
+# Install dependencies if connected to the internet
+If (Test-Connection -ComputerName "google.com" -Count 1 -Quiet) {
+    While (-Not (Get-Module -ListAvailable -Name "PSDepend")) {
+        If ($PSVersionTable.PSVersion.Major -Ge 5) {
+            Install-Module -Name "PSDepend" -Scope CurrentUser
+        } ElseIf (($PSVersionTable.PSVersion.Major -Eq 3) -Or ($PSVersionTable.PSVersion.Major -Eq 4)) {
+            Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://raw.github.com/ramblingcookiemonster/PSDepend/Examples/Install-PSDepend.ps1')
+        }
     }
-}
 
-Write-Output "Checking dependencies..."
+    Write-Output "Checking dependencies..."
 
-If (-Not (Invoke-PSDepend .\ -Test -Quiet)) {
-    Write-Output "Installing dependencies..."
-    Invoke-PSDepend -Force
+    If (-Not (Invoke-PSDepend .\ -Test -Quiet)) {
+        Write-Output "Installing dependencies..."
+        Invoke-PSDepend -Force
+    }
 }
 
 # Load project settings
