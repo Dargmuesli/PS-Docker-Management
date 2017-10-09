@@ -11,7 +11,13 @@ Param (
 
     [Parameter(Mandatory = $False)]
     [ValidateSet('BITS', 'WebClient', 'WebRequest')]
-    [String] $DownloadMethod = "BITS"
+    [String] $DownloadMethod = "BITS",
+
+    [Switch] $KeepYAML,
+
+    [Switch] $KeepImages,
+    
+    [Switch] $Offline
 )
 
 # Enforce strict coding rules
@@ -23,34 +29,31 @@ $ErrorActionPreference = "Stop"
 # Unify path parameter
 $ProjectPath = (Convert-Path -Path $ProjectPath).TrimEnd("\")
 
+# Check online status
+If (-Not (Test-Connection -ComputerName "google.com" -Count 1 -Quiet)) {
+    $Offline = $True
+    Write-Information "Internet connection test failed. Operating in offline mode..."
+}
+
 # Install dependencies if connected to the internet
-If (Test-Connection -ComputerName "google.com" -Count 1 -Quiet) {
-    While (-Not (Get-Module -ListAvailable -Name "PSDepend")) {
-        If ($PSVersionTable.PSVersion.Major -Ge 5) {
-            Install-Module -Name "PSDepend" -Scope CurrentUser
-        } ElseIf (($PSVersionTable.PSVersion.Major -Eq 3) -Or ($PSVersionTable.PSVersion.Major -Eq 4)) {
-            Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://raw.github.com/ramblingcookiemonster/PSDepend/Examples/Install-PSDepend.ps1')
-        }
+If (-Not $Offline) {
+    Write-Host "Installing dependencies..."
+
+    If (-Not (Get-Module -Name "PSDepend" -ListAvailable)) {
+        Install-Module -Name "PSDepend" -Scope CurrentUser
     }
 
-    Write-Output "Checking dependencies..."
+    Invoke-PSDepend -Install -Import -Force
 
-    If (-Not (Invoke-PSDepend .\ -Test -Quiet)) {
-        Write-Output "Installing dependencies..."
-        Invoke-PSDepend -Force
-    }
+    Install-PackageOnce -Name @("YamlDotNet") -Add
 }
 
 # Load project settings
-$Settings = Read-Settings -SourcePath @("${ProjectPath}\package.json", "${ProjectPath}\docker-management.json")
+$Settings = Read-Settings -SourcePath @("${ProjectPath}\package.json", "${ProjectPath}\docker-management.json") 
 
 # Ensure required project variables are set
-If (-Not (Get-Member -InputObject $Settings -Name "Name" -Membertype Properties)) {
-    Throw "Name not specified."
-}
-
-If (-Not (Get-Member -InputObject $Settings -Name "ComposeFile" -Membertype Properties)) {
-    Throw "Compose file not specified."
+If (-Not (Test-PropertyExists -Object $Settings -PropertyName @("Name", "ComposeFile"))) {
+    Throw "Not all required project variables are set."
 }
 
 # Project variables
@@ -61,15 +64,16 @@ $RegistryAddressHostname = [String] $Settings.RegistryAddress.Hostname
 $RegistryAddressPort = [String] $Settings.RegistryAddress.Port
 $ComposeFile = [PSCustomObject] $Settings.ComposeFile
 
-If (-Not $ComposeFile.Name) {
+If (-Not (Test-PropertyExists -Object $ComposeFile -PropertyName "Name")) {
     Throw "Compose file name not specified."
 }
 
-Write-Output "Writing compose file..."
-Write-DockerComposeFile -ComposeFile $ComposeFile -Path $ProjectPath -Force
-
-# Ensure Docker is running
-Start-Docker -MachineName $MachineName -DownloadMethod $DownloadMethod
+If (-Not $KeepYAML) {
+    Write-Host "Writing compose file..."
+    
+    $ComposeFileHashtable = Convert-PSCustomObjectToHashtable -InputObject $ComposeFile.Content -YamlDotNet_DoubleQuoted
+    [System.IO.File]::WriteAllLines("$ProjectPath\$($ComposeFile.Name)", (New-Yaml -Value $ComposeFileHashtable))
+}
 
 # Assemble script variables and examine Docker's context
 $Package = $Null
@@ -88,10 +92,10 @@ If (Test-DockerInSwarm) {
         Select-String $NameDns
 
     If (-Not $StackGrep) {
-        Write-Output "Stack not found."
+        Write-Host "Stack not found."
     }
 } Else {
-    Write-Output "Docker not in swarm."
+    Write-Host "Docker not in swarm."
 }
 
 $IdImgLocal = docker images -q $Package |
@@ -103,7 +107,7 @@ $IdImgLocal = docker images -q $Package |
 }
 
 If (-Not $IdImgLocal) {
-    Write-Output "Image not found as local image in image list."
+    Write-Host "Image not found as local image in image list."
 }
 
 $RegistryAddress = "${RegistryAddressHostname}:${RegistryAddressPort}"
@@ -121,41 +125,43 @@ If ($RegistryAddress) {
     }
 
     If (-Not $IdImgRegistry) {
-        Write-Output "Image not found as registry image in image list."
+        Write-Host "Image not found as registry image in image list."
     }
 }
 
 ### Main tasks
 
 If ($StackGrep) {
-    Write-Output "Stopping stack `"${NameDns}`"..."
+    Write-Host "Stopping stack `"${NameDns}`"..."
     Stop-DockerStack -StackName $NameDns
 }
 
-If ($IdImgLocal) {
-    Write-Output "Removing image `"${IdImgLocal}`" as local image..."
-    docker rmi ${IdImgLocal} -f
+If (-Not $KeepImages) {
+    If ($IdImgLocal) {
+        Write-Host "Removing image `"${IdImgLocal}`" as local image..."
+        docker rmi ${IdImgLocal} -f
+    }
+
+    If ($IdImgRegistry -And ($IdImgRegistry -Ne $IdImgLocal)) {
+        Write-Host "Removing image `"${IdImgRegistry}`" as registry image..."
+        docker rmi ${IdImgRegistry} -f
+    }
+
+    Write-Host "Building `"${Package}`"..."
+    docker build -t ${Package} $ProjectPath
+
+    If ($RegistryAddress) {
+        Write-Host "Publishing `"${Package}`" on `"${RegistryAddress}`"..."
+        docker tag ${Package} "${RegistryAddress}/${Package}"
+        docker push "${RegistryAddress}/${Package}"
+    }
+
+    If (-Not (Test-DockerInSwarm)) {
+        Write-Host "Initializing swarm..."
+        docker swarm init --advertise-addr "eth0:2377"
+    }
 }
 
-If ($IdImgRegistry -And ($IdImgRegistry -Ne $IdImgLocal)) {
-    Write-Output "Removing image `"${IdImgRegistry}`" as registry image..."
-    docker rmi ${IdImgRegistry} -f
-}
-
-Write-Output "Building `"${Package}`"..."
-docker build -t ${Package} $ProjectPath
-
-If ($RegistryAddress) {
-    Write-Output "Publishing `"${Package}`" on `"${RegistryAddress}`"..."
-    docker tag ${Package} "${RegistryAddress}/${Package}"
-    docker push "${RegistryAddress}/${Package}"
-}
-
-If (-Not (Test-DockerInSwarm)) {
-    Write-Output "Initializing swarm..."
-    docker swarm init --advertise-addr "eth0:2377"
-}
-
-Write-Output "Deploying `"${Package}`" with `"$ProjectPath\$($ComposeFile.Name)`"..."
+Write-Host "Deploying `"${Package}`" with `"$ProjectPath\$($ComposeFile.Name)`"..."
 Mount-EnvFile -EnvFilePath "$ProjectPath\.env"
 docker stack deploy -c "$ProjectPath\$($ComposeFile.Name)" $NameDns
