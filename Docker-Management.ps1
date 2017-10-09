@@ -1,6 +1,5 @@
 #Requires -Version 5
 
-# Get the path to the project this script is used on
 Param (
     [Parameter(Mandatory = $True, Position = 0)]
     [ValidateScript({Test-Path -Path $PSItem})]
@@ -15,7 +14,7 @@ Param (
     [String] $DownloadMethod = "BITS"
 )
 
-# Enforce desired coding rules
+# Enforce strict coding rules
 Set-StrictMode -Version Latest
 
 # Stop on errors
@@ -87,7 +86,7 @@ $NameDns = $Name.replace(".", "-")
 If (Test-DockerInSwarm) {
     $StackGrep = docker stack ls |
         Select-String $NameDns
-    
+
     If (-Not $StackGrep) {
         Write-Output "Stack not found."
     }
