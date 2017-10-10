@@ -31,7 +31,7 @@ Param (
     [Switch] $KeepYAML,
 
     [Switch] $KeepImages,
-    
+
     [Switch] $Offline
 )
 
@@ -69,7 +69,7 @@ If (-Not $Offline) {
 }
 
 # Load project settings
-$Settings = Read-Settings -SourcePath @("${ProjectPath}\package.json", "${ProjectPath}\docker-management.json") 
+$Settings = Read-Settings -SourcePath @("${ProjectPath}\package.json", "${ProjectPath}\docker-management.json")
 
 # Ensure required project variables are set
 If (-Not (Test-PropertyExists -Object $Settings -PropertyName @("Name", "ComposeFile"))) {
