@@ -47,12 +47,12 @@ $ProjectPath = (Convert-Path -Path $ProjectPath).TrimEnd("\")
 # Check online status
 If (-Not (Test-Connection -ComputerName "google.com" -Count 1 -Quiet)) {
     $Offline = $True
-    Write-Information "Internet connection test failed. Operating in offline mode..."
+    Write-Host "Internet connection test failed. Operating in offline mode..." -ForegroundColor "Cyan"
 }
 
 # Install dependencies if connected to the internet
 If (-Not $Offline) {
-    Write-Host "Installing dependencies..."
+    Write-Host "Installing dependencies..." -ForegroundColor "Cyan"
 
     If (-Not (Get-Module -Name "PSDepend" -ListAvailable)) {
         Install-Module -Name "PSDepend" -Scope CurrentUser
@@ -84,8 +84,8 @@ If (-Not (Test-PropertyExists -Object $ComposeFile -PropertyName "Name")) {
 }
 
 If (-Not $KeepYAML) {
-    Write-Host "Writing compose file..."
-    
+    Write-Host "Writing compose file..." -ForegroundColor "Cyan"
+
     $ComposeFileHashtable = Convert-PSCustomObjectToHashtable -InputObject $ComposeFile.Content -YamlDotNet_DoubleQuoted
     [System.IO.File]::WriteAllLines("$ProjectPath\$($ComposeFile.Name)", (New-Yaml -Value $ComposeFileHashtable))
 }
@@ -107,10 +107,10 @@ If (Test-DockerInSwarm) {
         Select-String $NameDns
 
     If (-Not $StackGrep) {
-        Write-Host "Stack not found."
+        Write-Host "Stack not found." -ForegroundColor "Cyan"
     }
 } Else {
-    Write-Host "Docker not in swarm."
+    Write-Host "Docker not in swarm." -ForegroundColor "Cyan"
 }
 
 $IdImgLocal = Invoke-Docker images -q $Package |
@@ -122,7 +122,7 @@ $IdImgLocal = Invoke-Docker images -q $Package |
 }
 
 If (-Not $IdImgLocal) {
-    Write-Host "Image not found as local image in image list."
+    Write-Host "Image not found as local image in image list." -ForegroundColor "Cyan"
 }
 
 $RegistryAddress = "${RegistryAddressHostname}:${RegistryAddressPort}"
@@ -140,7 +140,7 @@ If ($RegistryAddress) {
     }
 
     If (-Not $IdImgRegistry) {
-        Write-Host "Image not found as registry image in image list."
+        Write-Host "Image not found as registry image in image list." -ForegroundColor "Cyan"
     }
 }
 
@@ -172,7 +172,7 @@ If (-Not $KeepImages) {
     }
 
     If (-Not (Test-DockerInSwarm)) {
-        Write-Host "Initializing swarm..."
+        Write-Host "Initializing swarm..." -ForegroundColor "Cyan"
         Invoke-Docker swarm init --advertise-addr "eth0:2377"
     }
 }
