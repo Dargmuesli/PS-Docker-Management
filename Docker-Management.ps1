@@ -88,7 +88,7 @@ $StackGrep = $Null
 $NameDns = $Name.replace(".", "-")
 
 If (Test-DockerInSwarm) {
-    $StackGrep = docker stack ls |
+    $StackGrep = Invoke-Docker stack ls |
         Select-String $NameDns
 
     If (-Not $StackGrep) {
@@ -98,7 +98,7 @@ If (Test-DockerInSwarm) {
     Write-Host "Docker not in swarm."
 }
 
-$IdImgLocal = docker images -q $Package |
+$IdImgLocal = Invoke-Docker images -q $Package |
     Out-String |
     ForEach-Object {
     If ($PSItem) {
@@ -116,7 +116,7 @@ $IdImgRegistry = $Null
 If ($RegistryAddress) {
     Start-DockerRegistry -RegistryName $RegistryAddressName -Hostname $RegistryAddressHostname -Port $RegistryAddressPort
 
-    $IdImgRegistry = docker images -q "${RegistryAddress}/${Package}" |
+    $IdImgRegistry = Invoke-Docker images -q "${RegistryAddress}/${Package}" |
         Out-String |
         ForEach-Object {
         If ($PSItem) {
@@ -139,29 +139,29 @@ If ($StackGrep) {
 If (-Not $KeepImages) {
     If ($IdImgLocal) {
         Write-Host "Removing image `"${IdImgLocal}`" as local image..."
-        docker rmi ${IdImgLocal} -f
+        Invoke-Docker rmi ${IdImgLocal} -f
     }
 
     If ($IdImgRegistry -And ($IdImgRegistry -Ne $IdImgLocal)) {
         Write-Host "Removing image `"${IdImgRegistry}`" as registry image..."
-        docker rmi ${IdImgRegistry} -f
+        Invoke-Docker rmi ${IdImgRegistry} -f
     }
 
     Write-Host "Building `"${Package}`"..."
-    docker build -t ${Package} $ProjectPath
+    Invoke-Docker build -t ${Package} $ProjectPath
 
     If ($RegistryAddress) {
         Write-Host "Publishing `"${Package}`" on `"${RegistryAddress}`"..."
-        docker tag ${Package} "${RegistryAddress}/${Package}"
-        docker push "${RegistryAddress}/${Package}"
+        Invoke-Docker tag ${Package} "${RegistryAddress}/${Package}"
+        Invoke-Docker push "${RegistryAddress}/${Package}"
     }
 
     If (-Not (Test-DockerInSwarm)) {
         Write-Host "Initializing swarm..."
-        docker swarm init --advertise-addr "eth0:2377"
+        Invoke-Docker swarm init --advertise-addr "eth0:2377"
     }
 }
 
 Write-Host "Deploying `"${Package}`" with `"$ProjectPath\$($ComposeFile.Name)`"..."
 Mount-EnvFile -EnvFilePath "$ProjectPath\.env"
-docker stack deploy -c "$ProjectPath\$($ComposeFile.Name)" $NameDns
+Invoke-Docker stack deploy -c "$ProjectPath\$($ComposeFile.Name)" $NameDns
