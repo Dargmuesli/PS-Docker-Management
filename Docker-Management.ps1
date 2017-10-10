@@ -1,17 +1,32 @@
 #Requires -Version 5
 
+<#
+    .SYNOPSIS
+    A PowerShell script for Docker project management.
+
+    .DESCRIPTION
+    It writes a Docker compose file, stops a running stack, removes images of the Docker project, rebuilds them, publishes them to a registry and initializes a Docker swarm on which it deploys the new stack.
+
+    .PARAMETER ProjectPath
+    The path to the Docker project.
+
+    .PARAMETER KeepYAML
+    Whether to regenerate the docker "docker-compose.yml".
+
+    .PARAMETER KeepImages
+    Whether to rebuild the Docker image.
+
+    .PARAMETER Offline
+    Whether to install dependencies.
+
+    .EXAMPLE
+    .\Docker-Management.ps1 -ProjectPath "..\docker-project-root\"
+#>
+
 Param (
     [Parameter(Mandatory = $True, Position = 0)]
     [ValidateScript({Test-Path -Path $PSItem})]
     [String] $ProjectPath,
-
-    [Parameter(Mandatory = $False)]
-    [ValidateNotNullOrEmpty()]
-    [String] $MachineName = "Docker",
-
-    [Parameter(Mandatory = $False)]
-    [ValidateSet('BITS', 'WebClient', 'WebRequest')]
-    [String] $DownloadMethod = "BITS",
 
     [Switch] $KeepYAML,
 
