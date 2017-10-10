@@ -65,7 +65,7 @@ If (-Not $Offline) {
 
     Invoke-PSDepend -Install -Import -Force
 
-    Install-PackageOnce -Name @("YamlDotNet") -Add
+    Install-PackageOnce -Name @("YamlDotNet") -Scope "CurrentUser" -Add
 }
 
 # Load project settings
