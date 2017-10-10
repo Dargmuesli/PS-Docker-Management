@@ -41,6 +41,11 @@ Set-StrictMode -Version Latest
 # Stop on errors
 $ErrorActionPreference = "Stop"
 
+# Ensure Docker is running
+If (-Not (Test-DockerRunning)) {
+    Throw "Docker is not running"
+}
+
 # Unify path parameter
 $ProjectPath = (Convert-Path -Path $ProjectPath).TrimEnd("\")
 
