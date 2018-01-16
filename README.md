@@ -2,9 +2,10 @@
 A PowerShell script for Docker project management.
 It writes a Docker compose file, stops a running stack, removes images of the Docker project, rebuilds them, publishes them to a registry and initializes a Docker swarm on which it deploys the new stack.
 
-## Requirements
-This PowerShell script installs its requirements automatically. See `Requirements.psd1`.
+## Dependencies
+This PowerShell script installs its dependencies automatically. See `Requirements.psd1`.
 
+### Note
 There seems to be a bug with the nuget.org v3-API where the `Install-Package` command does not find matching packages to install automatically. One needs to unregister the v3-API and register the v2-API to solve this error.
 
 ``` PowerShell
@@ -22,6 +23,7 @@ Name        ProviderName   IsTrusted   Location
 nuget.org   NuGet          False       https://www.nuget.org/api/v2/
 ```
 
+## Configuration
 Settings are read from `package.json` and `docker-management.json` files in the Docker project's directory.
 
 ## Docker-Management
