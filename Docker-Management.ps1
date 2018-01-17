@@ -90,7 +90,7 @@ If (-Not $KeepYAML) {
     [System.IO.File]::WriteAllLines("$ProjectPath\$($ComposeFile.Name)", (New-Yaml -Value $ComposeFileHashtable))
 }
 
-# Assemble script variables and examine Docker's context
+# Assemble script variables
 $Package = $Null
 
 If ($Owner -And $Name) {
@@ -102,6 +102,12 @@ If ($Owner -And $Name) {
 $StackGrep = $Null
 $NameDns = $Name.replace(".", "-")
 
+# Ensure Docker is started
+While (-Not (Test-DockerRunning)) {
+    Start-Docker
+}
+
+# Examine Docker's context
 If (Test-DockerInSwarm) {
     $StackGrep = Invoke-Docker stack ls |
         Select-String $NameDns
