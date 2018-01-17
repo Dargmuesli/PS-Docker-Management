@@ -20,7 +20,7 @@
     Whether to install dependencies.
 
     .EXAMPLE
-    .\Docker-Management.ps1 -ProjectPath "..\docker-project-root\"
+    .\Invoke-PSDockerManagement.ps1 -ProjectPath "..\docker-project-root\"
 #>
 
 Param (
