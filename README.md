@@ -26,11 +26,24 @@ nuget.org   NuGet          False       https://www.nuget.org/api/v2/
 ## Configuration
 Settings are read from `package.json` and `docker-management.json` files in the Docker project's directory.
 
-## Docker-Management
+## Invoke-PSDockerManagement.ps1
+
+### SYNOPSIS
+A PowerShell script for Docker project management.
 
 ### Syntax
-``` PowerShell
-Docker-Management.ps1 [-ProjectPath] <string> [-MachineName <string>] [-DownloadMethod <string>] [-KeepYAML] [-KeepImages] [-Offline] [<CommonParameters>]
+```
+Invoke-PSDockerManagement.ps1 [-ProjectPath] <String> [-KeepYAML] [-KeepImages] [-Offline] [<CommonParameters>]
+```
+
+### DESCRIPTION
+It writes a Docker compose file, stops a running stack, removes images of the Docker project, rebuilds them, publishes them to a registry and initializes a Docker swarm on which it deploys the new stack.
+
+### EXAMPLES
+
+#### EXAMPLE 1
+```
+.\Invoke-PSDockerManagement.ps1 -ProjectPath "..\docker-project-root\"
 ```
 
 ### Parameters
@@ -95,12 +108,9 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
-### EXAMPLES
-
-#### -------------------------- EXAMPLE 1 --------------------------
-``` PowerShell
-.\Docker-Management.ps1 -ProjectPath "..\docker-project-root\"
-```
+#### CommonParameters
+This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable.
+For more information, see about_CommonParameters (http://go.microsoft.com/fwlink/?LinkID=113216).
 
 ## Configuration
 The script needs to be able to read certain values from configuration files.
