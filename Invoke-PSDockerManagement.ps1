@@ -55,7 +55,7 @@ If (-Not $Offline) {
     Write-Host "Installing dependencies..." -ForegroundColor "Cyan"
 
     If (-Not (Get-Module -Name "PSDepend" -ListAvailable)) {
-        Install-Module -Name "PSDepend" -Scope CurrentUser
+        Install-Module -Name "PSDepend" -Scope CurrentUser -Force
     }
 
     Invoke-PSDepend -Install -Import -Force
