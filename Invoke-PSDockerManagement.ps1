@@ -184,5 +184,9 @@ If (-Not $KeepImages) {
 }
 
 Write-Host "Deploying `"${Package}`" with `"$ProjectPath\$($ComposeFile.Name)`"..."
-Mount-EnvFile -EnvFilePath "$ProjectPath\.env"
+
+If (Test-Path -Path "$ProjectPath\.env") {
+    Mount-EnvFile -EnvFilePath "$ProjectPath\.env"
+}
+
 Invoke-Docker stack deploy -c "$ProjectPath\$($ComposeFile.Name)" $NameDns
