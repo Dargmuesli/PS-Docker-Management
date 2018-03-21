@@ -1,3 +1,3 @@
 @{
-    'dargmuesli/powershell-lib' = 'latest'
+    'dargmuesli/PowerShell-Lib' = 'latest'
 }
