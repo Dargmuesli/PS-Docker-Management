@@ -87,7 +87,7 @@ If (-Not $KeepYAML) {
     Write-Host "Writing compose file..." -ForegroundColor "Cyan"
 
     $ComposeFileHashtable = Convert-PSCustomObjectToHashtable -InputObject $ComposeFile.Content -YamlDotNet_DoubleQuoted
-    [System.IO.File]::WriteAllLines("$ProjectPath\$($ComposeFile.Name)", (New-Yaml -Value $ComposeFileHashtable))
+    [System.IO.File]::WriteAllLines((Join-Path -Path $ProjectPath -ChildPath $($ComposeFile.Name)), (New-Yaml -Value $ComposeFileHashtable))
 }
 
 # Assemble script variables
