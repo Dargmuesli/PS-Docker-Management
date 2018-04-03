@@ -42,7 +42,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 # Unify path parameter
-$ProjectPath = (Convert-Path -Path $ProjectPath).TrimEnd("\")
+$ProjectPath = (Convert-Path -Path $ProjectPath).TrimEnd("/\")
 
 # Check online status
 If (-Not (Test-Connection -ComputerName "google.com" -Count 1 -Quiet)) {
@@ -64,7 +64,9 @@ If (-Not $Offline) {
 }
 
 # Load project settings
-$Settings = Read-Settings -SourcePath @("${ProjectPath}\package.json", "${ProjectPath}\docker-management.json")
+$PackageJson = Join-Path -Path $ProjectPath "package.json"
+$DockerManagementJson = Join-Path -Path $ProjectPath "docker-management.json"
+$Settings = Read-Settings -SourcePath @($PackageJson, $DockerManagementJson)
 
 # Ensure required project variables are set
 If (-Not (Test-PropertyExists -Object $Settings -PropertyName @("Name", "ComposeFile"))) {
@@ -183,10 +185,13 @@ If (-Not $KeepImages) {
     }
 }
 
-Write-Host "Deploying `"${Package}`" with `"$ProjectPath\$($ComposeFile.Name)`"..."
+$EnvPath = Join-Path -Path $ProjectPath ".env"
+$ComposeFilePath = Join-Path -Path $ProjectPath $ComposeFile.Name
 
-If (Test-Path -Path "$ProjectPath\.env") {
-    Mount-EnvFile -EnvFilePath "$ProjectPath\.env"
+Write-Host "Deploying `"$Package`" with `"$ComposeFilePath`"..."
+
+If (Test-Path -Path $EnvPath) {
+    Mount-EnvFile -EnvFilePath $EnvPath
 }
 
-Invoke-Docker stack deploy -c "$ProjectPath\$($ComposeFile.Name)" $NameDns
+Invoke-Docker stack deploy -c $ComposeFilePath $NameDns
