@@ -104,9 +104,20 @@ If ($Owner -And $Name) {
 $StackGrep = $Null
 $NameDns = $Name.replace(".", "-")
 
+# Ensure Docker is installed
+If (-Not (Test-DockerInstalled)) {
+    Install-Docker -DownloadMethod $DownloadMethod -Ask
+}
+
 # Ensure Docker is started
-While (-Not (Test-DockerRunning)) {
-    Start-Docker
+If (-Not (Test-DockerRunning)) {
+    If (Read-PromptYesNo -Caption "Docker is not running." -Message "Do you want to start it automatically?" -DefaultChoice 0) {
+        Start-Docker
+    } Else {
+        While (-Not (Test-DockerRunning)) {
+            Read-Host "Please start Docker manually. Press enter to continue..."
+        }
+    }
 }
 
 # Examine Docker's context
