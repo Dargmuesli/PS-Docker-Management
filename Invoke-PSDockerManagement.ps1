@@ -64,7 +64,7 @@ If (-Not $Offline) {
 }
 
 # Load project settings
-$PackageJson = Join-Path -Path $ProjectPath "package.json"
+$PackageJson = Join-Path -Path $ProjectPath -ChildPath "package.json"
 $DockerManagementJson = Join-Path -Path $ProjectPath "docker-management.json"
 $Settings = Read-Settings -SourcePath @($PackageJson, $DockerManagementJson)
 
@@ -196,8 +196,8 @@ If (-Not $KeepImages) {
     }
 }
 
-$EnvPath = Join-Path -Path $ProjectPath ".env"
-$ComposeFilePath = Join-Path -Path $ProjectPath $ComposeFile.Name
+$EnvPath = Join-Path -Path $ProjectPath -ChildPath ".env"
+$ComposeFilePath = Join-Path -Path $ProjectPath -ChildPath $ComposeFile.Name
 
 Write-Host "Deploying `"$Package`" with `"$ComposeFilePath`"..."
 
