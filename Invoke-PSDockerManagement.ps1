@@ -52,7 +52,7 @@ If (-Not (Test-Connection -ComputerName "google.com" -Count 1 -Quiet)) {
 
 # Install dependencies if connected to the internet
 If (-Not $Offline) {
-    Write-Host "Installing dependencies..." -ForegroundColor "Cyan"
+    Write-Host "Setting up dependencies..." -ForegroundColor "Cyan"
 
     If (-Not (Get-Module -Name "PSDepend" -ListAvailable)) {
         Install-Module -Name "PSDepend" -Scope CurrentUser -Force
@@ -164,28 +164,27 @@ If ($RegistryAddress) {
 }
 
 ### Main tasks
-
 If ($StackGrep) {
-    Write-Host "Stopping stack `"${NameDns}`"..."
+    Write-MultiColor -Text @("Stopping stack ", $NameDns, "...") -Color Cyan, Yellow, Cyan
     Stop-DockerStack -StackName $NameDns
 }
 
 If (-Not $KeepImages) {
     If ($IdImgLocal) {
-        Write-Host "Removing image `"${IdImgLocal}`" as local image..."
+        Write-MultiColor -Text @("Removing image ", $IdImgLocal, " as local image...") -Color Cyan, Yellow, Cyan
         Invoke-Docker rmi ${IdImgLocal} -f
     }
 
     If ($IdImgRegistry -And ($IdImgRegistry -Ne $IdImgLocal)) {
-        Write-Host "Removing image `"${IdImgRegistry}`" as registry image..."
+        Write-MultiColor -Text @("Removing image ", $IdImgRegistry, " as registry image...") -Color Cyan, Yellow, Cyan
         Invoke-Docker rmi ${IdImgRegistry} -f
     }
 
-    Write-Host "Building `"${Package}`"..."
+    Write-MultiColor -Text @("Building ", $Package, "...") -Color Cyan, Yellow, Cyan
     Invoke-Docker build -t ${Package} $ProjectPath
 
     If ($RegistryAddress) {
-        Write-Host "Publishing `"${Package}`" on `"${RegistryAddress}`"..."
+        Write-MultiColor -Text @("Publishing ", $Package, " on ", $RegistryAddress, "...") -Color Cyan, Yellow, Cyan, Yellow, Cyan
         Invoke-Docker tag ${Package} "${RegistryAddress}/${Package}"
         Invoke-Docker push "${RegistryAddress}/${Package}"
     }
@@ -199,7 +198,7 @@ If (-Not $KeepImages) {
 $EnvPath = Join-Path -Path $ProjectPath -ChildPath ".env"
 $ComposeFilePath = Join-Path -Path $ProjectPath -ChildPath $ComposeFile.Name
 
-Write-Host "Deploying `"$Package`" with `"$ComposeFilePath`"..."
+Write-MultiColor -Text @("Deploying ", $Package, " with ", $ComposeFilePath, "...") -Color Cyan, Yellow, Cyan, Yellow, Cyan
 
 If (Test-Path -Path $EnvPath) {
     Mount-EnvFile -EnvFilePath $EnvPath
