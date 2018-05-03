@@ -31,9 +31,11 @@ Settings are read from `package.json` and `docker-management.json` files in the 
 ### SYNOPSIS
 A PowerShell script for Docker project management.
 
-### Syntax
+### SYNTAX
+
 ```
-Invoke-PSDockerManagement.ps1 [-ProjectPath] <String> [-KeepYAML] [-KeepImages] [-Offline] [<CommonParameters>]
+Invoke-PSDockerManagement [-ProjectPath] <String> [-EnvPath <String>] [-KeepYAML] [-KeepImages] [-Offline]
+ [<CommonParameters>]
 ```
 
 ### DESCRIPTION
@@ -46,7 +48,7 @@ It writes a Docker compose file, stops a running stack, removes images of the Do
 .\Invoke-PSDockerManagement.ps1 -ProjectPath "..\docker-project-root\"
 ```
 
-### Parameters
+### PARAMETERS
 
 #### -ProjectPath
 The path to the Docker project.
@@ -58,6 +60,21 @@ Aliases:
 
 Required: True
 Position: 1
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
+#### -EnvPath
+The path to the environment variable file.
+
+```yaml
+Type: String
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
 Default value: None
 Accept pipeline input: False
 Accept wildcard characters: False
@@ -181,4 +198,3 @@ This includes:
         }
     }
     ```
-

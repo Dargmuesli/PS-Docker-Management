@@ -10,6 +10,9 @@
     .PARAMETER ProjectPath
     The path to the Docker project.
 
+    .PARAMETER EnvPath
+    The path to the environment variable file.
+
     .PARAMETER KeepYAML
     Whether to regenerate the docker "docker-compose.yml".
 
@@ -27,6 +30,16 @@ Param (
     [Parameter(Mandatory = $True, Position = 0)]
     [ValidateScript({Test-Path -Path $PSItem})]
     [String] $ProjectPath,
+
+    [Parameter(Mandatory = $False)]
+    [ValidateScript({
+        If (-Not [System.IO.Path]::IsPathRooted($PSItem)) {
+            Test-Path -Path (Join-Path -Path $ProjectPath -ChildPath $PSItem)
+        } Else {
+            Test-Path -Path $PSItem
+        }
+    })]
+    [String] $EnvPath,
 
     [Switch] $KeepYAML,
 
@@ -195,13 +208,18 @@ If (-Not $KeepImages) {
     }
 }
 
-$EnvPath = Join-Path -Path $ProjectPath -ChildPath ".env"
+If ($EnvPath) {
+    If (-Not [System.IO.Path]::IsPathRooted($EnvPath)) {
+        $EnvPath = Join-Path -Path $ProjectPath -ChildPath $EnvPath
+    }
+
+    If (Test-Path -Path $EnvPath) {
+        Mount-EnvFile -EnvFilePath $EnvPath
+    }
+}
+
 $ComposeFilePath = Join-Path -Path $ProjectPath -ChildPath $ComposeFile.Name
 
 Write-MultiColor -Text @("Deploying ", $Package, " with ", $ComposeFilePath, "...") -Color Cyan, Yellow, Cyan, Yellow, Cyan
-
-If (Test-Path -Path $EnvPath) {
-    Mount-EnvFile -EnvFilePath $EnvPath
-}
 
 Invoke-Docker stack deploy -c $ComposeFilePath $NameDns
