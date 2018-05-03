@@ -93,16 +93,17 @@ $RegistryAddressName = [String] $Settings.RegistryAddress.Name
 $RegistryAddressHostname = [String] $Settings.RegistryAddress.Hostname
 $RegistryAddressPort = [String] $Settings.RegistryAddress.Port
 $ComposeFile = [PSCustomObject] $Settings.ComposeFile
+$ComposeFilePath = (Join-Path -Path $ProjectPath -ChildPath $ComposeFile.Name)
 
 If (-Not (Test-PropertyExists -Object $ComposeFile -PropertyName "Name")) {
     Throw "Compose file name not specified."
 }
 
-If (-Not $KeepYAML) {
-    Write-Host "Writing compose file..." -ForegroundColor "Cyan"
+If ((-Not (Test-Path $ComposeFilePath)) -Or (-Not $KeepYAML)) {
+    Write-Host "Writing YAML compose file..." -ForegroundColor "Cyan"
 
     $ComposeFileHashtable = Convert-PSCustomObjectToHashtable -InputObject $ComposeFile.Content -YamlDotNet_DoubleQuoted
-    [System.IO.File]::WriteAllLines((Join-Path -Path $ProjectPath -ChildPath $($ComposeFile.Name)), (New-Yaml -Value $ComposeFileHashtable))
+    [System.IO.File]::WriteAllLines($ComposeFilePath, (New-Yaml -Value $ComposeFileHashtable))
 }
 
 # Assemble script variables
@@ -182,7 +183,7 @@ If ($StackGrep) {
     Stop-DockerStack -StackName $NameDns
 }
 
-If (-Not $KeepImages) {
+If (((-Not $IdImgLocal) -And (-Not $IdImgRegistry)) -Or (-Not $KeepImages)) {
     If ($IdImgLocal) {
         Write-MultiColor -Text @("Removing image ", $IdImgLocal, " as local image...") -Color Cyan, Yellow, Cyan
         Invoke-Docker rmi ${IdImgLocal} -f
