@@ -60,7 +60,7 @@ $ProjectPath = (Convert-Path -Path $ProjectPath).TrimEnd("/\")
 # Check online status
 If (-Not (Test-Connection -ComputerName "google.com" -Count 1 -Quiet)) {
     $Offline = $True
-    Write-Host "Internet connection test failed. Operating in offline mode..." -ForegroundColor "Cyan"
+    Write-Warning -Message "Internet connection test failed. Operating in offline mode..."
 }
 
 # Install dependencies if connected to the internet
@@ -146,6 +146,7 @@ If (Test-DockerInSwarm) {
     Write-Host "Docker not in swarm." -ForegroundColor "Cyan"
 }
 
+# Search image as local image
 $IdImgLocal = Invoke-Docker images -q $Package |
     Out-String |
     ForEach-Object {
@@ -155,15 +156,17 @@ $IdImgLocal = Invoke-Docker images -q $Package |
 }
 
 If (-Not $IdImgLocal) {
-    Write-Host "Image not found as local image in image list." -ForegroundColor "Cyan"
+    Write-Host "Image not found as local image." -ForegroundColor "Cyan"
 }
 
+# Start or use the local registry
 $RegistryAddress = "${RegistryAddressHostname}:${RegistryAddressPort}"
 $IdImgRegistry = $Null
 
 If ($RegistryAddress) {
     Start-DockerRegistry -RegistryName $RegistryAddressName -Hostname $RegistryAddressHostname -Port $RegistryAddressPort
 
+    # Search image as registry image
     $IdImgRegistry = Invoke-Docker images -q "${RegistryAddress}/${Package}" |
         Out-String |
         ForEach-Object {
@@ -173,42 +176,50 @@ If ($RegistryAddress) {
     }
 
     If (-Not $IdImgRegistry) {
-        Write-Host "Image not found as registry image in image list." -ForegroundColor "Cyan"
+        Write-Host "Image not found as registry image." -ForegroundColor "Cyan"
     }
 }
 
-### Main tasks
+# Stop stack
 If ($StackGrep) {
     Write-MultiColor -Text @("Stopping stack ", $NameDns, "...") -Color Cyan, Yellow, Cyan
     Stop-DockerStack -StackName $NameDns
 }
 
+### Main tasks
 If (((-Not $IdImgLocal) -And (-Not $IdImgRegistry)) -Or (-Not $KeepImages)) {
+
+    # Delete local image
     If ($IdImgLocal) {
         Write-MultiColor -Text @("Removing image ", $IdImgLocal, " as local image...") -Color Cyan, Yellow, Cyan
         Invoke-Docker rmi ${IdImgLocal} -f
     }
 
+    # Delete registry image
     If ($IdImgRegistry -And ($IdImgRegistry -Ne $IdImgLocal)) {
         Write-MultiColor -Text @("Removing image ", $IdImgRegistry, " as registry image...") -Color Cyan, Yellow, Cyan
         Invoke-Docker rmi ${IdImgRegistry} -f
     }
 
+    # Build image
     Write-MultiColor -Text @("Building ", $Package, "...") -Color Cyan, Yellow, Cyan
     Invoke-Docker build -t ${Package} $ProjectPath
 
+    # Publish local image on local registry
     If ($RegistryAddress) {
         Write-MultiColor -Text @("Publishing ", $Package, " on ", $RegistryAddress, "...") -Color Cyan, Yellow, Cyan, Yellow, Cyan
         Invoke-Docker tag ${Package} "${RegistryAddress}/${Package}"
         Invoke-Docker push "${RegistryAddress}/${Package}"
     }
 
+    # Initialize the swarm
     If (-Not (Test-DockerInSwarm)) {
         Write-Host "Initializing swarm..." -ForegroundColor "Cyan"
         Invoke-Docker swarm init --advertise-addr "eth0:2377"
     }
 }
 
+# Mount .env file
 If ($EnvPath) {
     If (-Not [System.IO.Path]::IsPathRooted($EnvPath)) {
         $EnvPath = Join-Path -Path $ProjectPath -ChildPath $EnvPath
@@ -221,6 +232,6 @@ If ($EnvPath) {
 
 $ComposeFilePath = Join-Path -Path $ProjectPath -ChildPath $ComposeFile.Name
 
+# Deploy the stack
 Write-MultiColor -Text @("Deploying ", $Package, " with ", $ComposeFilePath, "...") -Color Cyan, Yellow, Cyan, Yellow, Cyan
-
 Invoke-Docker stack deploy -c $ComposeFilePath $NameDns
