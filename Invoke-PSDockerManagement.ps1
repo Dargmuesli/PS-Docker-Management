@@ -230,7 +230,6 @@ If ($EnvPath) {
     }
 }
 
-$ComposeFilePath = Join-Path -Path $ProjectPath -ChildPath $ComposeFile.Name
 
 # Deploy the stack
 Write-MultiColor -Text @("Deploying ", $Package, " with ", $ComposeFilePath, "...") -Color Cyan, Yellow, Cyan, Yellow, Cyan
