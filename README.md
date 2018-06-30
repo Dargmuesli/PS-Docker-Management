@@ -80,6 +80,21 @@ Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
+#### -SecretPath
+The path to Docker secret files.
+
+```yaml
+Type: String
+Parameter Sets: (All)
+Aliases:
+
+Required: False
+Position: Named
+Default value: None
+Accept pipeline input: False
+Accept wildcard characters: False
+```
+
 #### -KeepYAML
 Whether to regenerate the docker "docker-compose.yml".
 

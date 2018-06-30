@@ -13,6 +13,9 @@
     .PARAMETER EnvPath
     The path to the environment variable file.
 
+    .PARAMETER SecretPath
+    The path to Docker secret files.
+
     .PARAMETER KeepYAML
     Whether to regenerate the docker "docker-compose.yml".
 
@@ -32,14 +35,28 @@ Param (
     [String] $ProjectPath,
 
     [Parameter(Mandatory = $False)]
-    [ValidateScript({
-        If (-Not [System.IO.Path]::IsPathRooted($PSItem)) {
-            Test-Path -Path (Join-Path -Path $ProjectPath -ChildPath $PSItem)
-        } Else {
-            Test-Path -Path $PSItem
+    [ValidateScript(
+        {
+            If (-Not [System.IO.Path]::IsPathRooted($PSItem)) {
+                Test-Path -Path (Join-Path -Path $ProjectPath -ChildPath $PSItem)
+            } Else {
+                Test-Path -Path $PSItem
+            }
         }
-    })]
+    )]
     [String] $EnvPath,
+
+    [Parameter(Mandatory = $False)]
+    [ValidateScript(
+        {
+            If (-Not [System.IO.Path]::IsPathRooted($PSItem)) {
+                Test-Path -Path (Join-Path -Path $ProjectPath -ChildPath $PSItem)
+            } Else {
+                Test-Path -Path $PSItem
+            }
+        }
+    )]
+    [String] $SecretPath,
 
     [Switch] $KeepYAML,
 
@@ -230,6 +247,21 @@ If ($EnvPath) {
     }
 }
 
+# Reload docker secrets
+If ($SecretPath) {
+    If (-Not [System.IO.Path]::IsPathRooted($SecretPath)) {
+        $SecretPath = Join-Path -Path $ProjectPath -ChildPath $SecretPath
+    }
+} Else {
+    $SecretPath = "$ProjectPath\docker\secrets"
+}
+
+If (Test-Path -Path $SecretPath) {
+    Get-ChildItem -Path $SecretPath -File | ForEach-Object {
+        Invoke-Docker secret rm $_.Name
+        Invoke-Docker secret create $_.Name $_.FullName
+    }
+}
 
 # Deploy the stack
 Write-MultiColor -Text @("Deploying ", $Package, " with ", $ComposeFilePath, "...") -Color Cyan, Yellow, Cyan, Yellow, Cyan
