@@ -59,8 +59,8 @@ $ErrorActionPreference = "Stop"
 # Unify path parameter
 $ProjectPath = (Convert-Path -Path $ProjectPath).TrimEnd("/\")
 
-# Check online status
-If (-Not (Test-Connection -ComputerName "google.com" -Count 1 -Quiet)) {
+# Check online status (-InformationAction Ignore is a workaround for https://github.com/PowerShell/PowerShell/issues/6768)
+If (-Not (Test-Connection -TargetName "1.1.1.1" -Count 1 -Quiet -InformationAction Ignore)) {
     $Offline = $True
     Write-Warning -Message "Internet connection test failed. Operating in offline mode..."
 }
