@@ -73,7 +73,7 @@ If (-Not $Offline) {
         Install-Module -Name "PSDepend" -Scope CurrentUser -Force
     }
 
-    Invoke-PSDepend -Install -Force
+    Invoke-PSDepend -Path $PSScriptRoot -Install -Force
 
     Install-PackageOnce -Name @("YamlDotNet") -Scope "CurrentUser" -Add
 }
